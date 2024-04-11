@@ -112,3 +112,10 @@ def parseHTML(HTML, url):
 def Main(url):
     HTML = getHTMLContent(url)
     return parseHTML(HTML, url)
+
+URL=input("Enter Amazon Product Link: ")
+result = Main(URL)
+print(result)
+
+driver.quit()
+
