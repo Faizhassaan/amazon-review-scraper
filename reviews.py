@@ -54,73 +54,24 @@ def getReview(container,obj):
 def getLink(container,obj):
     return f"https://{obj['url']}{container.find('a')['href']}"
 
-def get_number_of_reviews(obj):
-    temp = ''
-    numbers = ''
+def get_product_id(url):
     try:
-        parsed_url = urlparse(obj['url'])
-        base_url = parsed_url.scheme + '://' + parsed_url.netloc + parsed_url.path
+        parsed_url = urlparse(url)
+        path_segments = parsed_url.path.split('/')
+        id_index = path_segments.index('dp') + 1
+        return path_segments[id_index]
+    except ValueError:
+        return None
 
-        # Extract the desired part before the /dp/ segment
-        product_url = base_url.split('/dp/')[0]
+def get_number_of_reviews(url):
+    try:
+        parsed_url = urlparse(url)
+        path_segments = parsed_url.path.split('/')
+        id_index = path_segments.index('dp') + 1
+        return path_segments[id_index]
+    except ValueError:
+        return None
 
-        # Construct the new URL with /product-reviews/ instead of /dp/
-        url = f"https{product_url}/product-reviews/{obj['id']}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews&pageNumber=1"
-
-        print(url)
-        
-        port = 5000
-        option = webdriver.ChromeOptions()
-        # option.add_argument("--headless=new")
-        driver_path = ChromeDriverManager().install()
-        driver = webdriver.Chrome(service=Service(executable_path=driver_path), options=option)
-        driver.get(url)
-        while True:
-            try:
-                # Check if captcha element is present
-                captcha_element = driver.find_element(By.XPATH, "//div[@class = 'a-row a-text-center']//img")
-                
-                # If captcha element is found, solve captcha
-                link = captcha_element.get_attribute('src')
-                captcha = AmazonCaptcha.fromlink(link)
-                captcha_value = AmazonCaptcha.solve(captcha)
-                input_field = driver.find_element(By.ID, "captchacharacters")
-                input_field.clear()  # Clear input field before sending keys
-                input_field.send_keys(captcha_value)
-                button = driver.find_element(By.CLASS_NAME, "a-button-text")
-                button.click()
-                
-                # Wait for captcha element to become stale or invisible
-                WebDriverWait(driver, 10).until(EC.staleness_of(captcha_element))
-                
-                # Wait for any AJAX requests or page reloads to settle
-                time.sleep(2)
-            except NoSuchElementException:
-                # Captcha element not found, break out of the loop
-                break
-
-        # logic
-        element = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "filter-info-section"))
-        )
-        text = element.text
-        for char in text:
-            if char != ' ' and char != '\n':
-                temp = temp + char
-            for index in range(0, len(temp)):
-                if index > temp.find('ratings,') + 7:
-                    if temp[index] != 'w':
-                        numbers = numbers + temp[index]
-                    else:
-                        break
-        return numbers.replace(',', '')
-    except Exception as e:
-        print("Error:", e)
-        return 0
-    # finally:
-    #     driver.quit()
-
-# Fetch HTML Content from the given link
 def getHTMLContent(obj, page):
     try:
         parsed_url = urlparse(obj['url'])
@@ -129,7 +80,7 @@ def getHTMLContent(obj, page):
         # Extract the desired part before the /dp/ segment
         product_url = base_url.split('/dp/')[0]
         # Construct the new URL with /product-reviews/ instead of /dp/
-        url = f"https{product_url}/product-reviews/{obj['id']}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews&pageNumber={page}"
+        url = f"{product_url}/product-reviews/{obj['id']}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews&pageNumber={page}"
         print(url)
         port = 5000
         option = webdriver.ChromeOptions()
@@ -168,9 +119,6 @@ def getHTMLContent(obj, page):
         print("Error:", e)
         return None
 
-    # finally:
-    #     driver.quit()
-
 def parseHTML(HTML,obj):
     data=[]
     if HTML is not None:
@@ -192,13 +140,21 @@ def parseHTML(HTML,obj):
         return None
 
 
-def Main(obj):
-    # obj = { 'url': 'www.example.com', 'id': 'B*******' }
+def Main(url):
+    # Extract product ID from the URL
+    product_id = get_product_id(url)
+    if product_id is None:
+        print("Error: Unable to extract product ID from the URL.")
+        return None
+
+    # Create obj with extracted URL and product ID
+    obj = {'url': url, 'id': product_id}
+    
     pageData = []
     pages = 1
 
     try:
-        num = int(get_number_of_reviews(obj))
+        num = int(get_number_of_reviews(url))  # Pass URL string instead of obj
     except ValueError:
         # Handle the case where get_number_of_reviews returns a non-integer value
         num = 0
@@ -217,3 +173,7 @@ def Main(obj):
             print(f"Page {i} Data: {res}")
            
     return pageData
+
+URL = input("Enter Amazon Product Link : ")
+result = Main(URL)
+print(result)
